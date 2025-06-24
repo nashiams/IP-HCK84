@@ -6,9 +6,7 @@ const uploadRoutes = require("./uploadRoutes");
 // const analyzeRoutes = require("./routes/analyzeRoutes");
 
 router.use("/api/auth", authRoutes);
-router.get("/", (req, res) => {
-  res.send("tes");
-});
+
 // Protected routes (require Bearer token)
 router.use("/api/requirements", requirementsRoutes);
 router.use("/api/upload", uploadRoutes);
