@@ -32,17 +32,9 @@ app.get("/api/health", (req, res) => {
   });
 });
 
-app.get("/api/tes", (req, res) => {
-  res.status(200).json({
-    status: "OK",
-    message: "ini tes",
-    timestamp: new Date().toISOString(),
-  });
-});
-
 // Public routes
 
-app.use(router);
+app.use("/", router);
 
 // 404 handler
 app.use((req, res) => {

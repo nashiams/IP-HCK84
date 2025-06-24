@@ -1,32 +1,50 @@
+const geminiService = require("../services/geminiService");
+
 class RequirementsController {
-  static async requirements(req, res, next) {
+  static async submitRequirements(req, res) {
     try {
       const { requirements } = req.body;
+      const userId = req.user.id; // From auth middleware
 
-      // Validate that requirements are provided
-      if (!requirements || requirements.trim().length === 0) {
-        return res.status(400).json({
-          success: false,
-          message: "Requirements are required",
-        });
+      if (!requirements) {
+        return res.status(400).json({ message: "Requirements are required" });
       }
 
-      // Since we're not storing requirements in database according to the architecture,
-      // we just validate and confirm receipt
-      //   console.log("Requirements received:", requirements);
+      // Gemini Prompt: Simplify into a checklist
+      const geminiPrompt = `
+You are a software engineering assistant. Your task is to read the following exam project requirements and return a simplified, developer-friendly checklist. 
+Each item should be clear, concise, and easy to verify. Use a format that can be easily checked off like:
 
-      // Respond with success message prompting for file upload
-      res.status(200).json({
-        success: true,
-        message: "Requirements accepted, now upload your file",
-        data: {
-          requirements: requirements,
-          nextStep: "upload",
-        },
+- [ ] Use client-server architecture
+- [ ] Implement REST API with CRUD
+- [ ] Upload and analyze ZIP files
+- [ ] Use at least 2 external APIs
+
+Here are the raw exam requirements:
+
+${requirements}
+
+Return only the checklist in bullet point format. Do not explain or add extra content.
+      `.trim();
+
+      const simplifiedChecklist = await geminiService.analyzePrompt(
+        geminiPrompt
+      );
+
+      // (Optional) You can save the requirements and checklist to DB later if needed.
+
+      return res.status(200).json({
+        message: "Requirements accepted",
+        simplifiedChecklist,
+        next: "Now upload your file",
       });
     } catch (error) {
-      next();
+      console.error("Error processing requirements:", error);
+      return res
+        .status(500)
+        .json({ message: "Failed to process requirements" });
     }
   }
 }
+
 module.exports = RequirementsController;
