@@ -1,6 +1,7 @@
 "use strict";
 const { Model } = require("sequelize");
-const { hashPassword } = require("../helpers/bcrypts");
+const { hashPassword } = require("../helpers/bcrypts"); // Assuming this is your hashing utility
+
 module.exports = (sequelize, DataTypes) => {
   class User extends Model {
     /**
@@ -40,11 +41,11 @@ module.exports = (sequelize, DataTypes) => {
             msg: "Password is required",
           },
           notNull: {
-            msg: "Email is required",
+            msg: "Password is required", // Corrected message from "Email is required"
           },
           len: {
             args: [6],
-            msg: "Password at least 6 characters",
+            msg: "Password must be at least 6 characters long", // More descriptive message
           },
         },
       },
@@ -56,18 +57,52 @@ module.exports = (sequelize, DataTypes) => {
             msg: "Name is required",
           },
           notNull: {
-            msg: "Email is required",
+            msg: "Name is required", // Corrected message from "Email is required"
           },
         },
       },
+      // --- New Columns Added Below ---
+      google_id: {
+        type: DataTypes.STRING,
+        unique: true, // Ensures one Google account maps to one user record
+        allowNull: true, // Null for manual login users
+      },
+      todoist_id: {
+        type: DataTypes.STRING,
+        unique: true, // Ensures one Todoist account maps to one user record
+        allowNull: true, // Null until Todoist is linked
+      },
+      todoist_access_token: {
+        type: DataTypes.STRING,
+        allowNull: true, // Null until Todoist is linked
+      },
+      todoist_refresh_token: {
+        type: DataTypes.STRING,
+        allowNull: true, // Null until Todoist is linked
+      },
+      todoist_token_expires_at: {
+        type: DataTypes.DATE,
+        allowNull: true, // Null until Todoist is linked
+      },
+      // --- End of New Columns ---
     },
     {
       sequelize,
       modelName: "User",
+      // Add hooks here if they are instance-level (beforeValidate, afterSave, etc.)
+      // Note: `createdAt` and `updatedAt` are usually added automatically by Sequelize
+      // if `timestamps` option is true (which it is by default).
     }
   );
+
+  // The beforeCreate hook should remain as is, as the password (whether user-input or random)
+  // should always be hashed before saving to the database for consistency and security.
   User.beforeCreate((user) => {
-    user.password = hashPassword(user.password);
+    // Only hash if the password is provided and not null (which it should always be for 'create')
+    if (user.password) {
+      user.password = hashPassword(user.password);
+    }
   });
+
   return User;
 };

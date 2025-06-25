@@ -1,7 +1,7 @@
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
-const morgan = require("morgan");
+// const morgan = require("morgan");
 const router = require("./routes/index");
 // Initialize express app
 const app = express();
@@ -19,7 +19,7 @@ app.use(
     credentials: true,
   })
 );
-app.use(morgan("dev"));
+// app.use(morgan("dev"));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

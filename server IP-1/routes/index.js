@@ -1,14 +1,13 @@
 const express = require("express");
 const router = express.Router();
-const authRoutes = require("./authRoutes");
-const requirementsRoutes = require("./requirementsRoutes");
-const uploadRoutes = require("./uploadRoutes");
-// const analyzeRoutes = require("./analyzeRoutes");
 
-router.use("/api/auth", authRoutes);
+const requirementsRoutes = require("./requirementsRoutes");
+const homeRoutes = require("./homeRoutes");
+const authenticRoutes = require("./authenticRoutes");
 
 // Protected routes (require Bearer token)
-router.use("/api/requirements", requirementsRoutes);
-router.use("/api/upload", uploadRoutes);
-// router.use("/api/analyze", analyzeRoutes);
+router.use("/api/codecheck", requirementsRoutes);
+router.use("/api/authentic", authenticRoutes);
+router.use("/api/todoist", homeRoutes);
+
 module.exports = router;

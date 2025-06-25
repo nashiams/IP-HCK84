@@ -1,8 +1,9 @@
 const express = require("express");
-const UploadController = require("../controllers/uploadController");
 const router = express.Router();
+const UserController = require("../controllers/UserController");
 
-router.post("/", UploadController.upload);
+router.post("/", UserController.register);
+router.post("/login", UserController.login);
 router.get("/tes", (req, res) => {
   res.send("tes");
 });
