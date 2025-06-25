@@ -1,3 +1,5 @@
+import { Provider } from "react-redux";
+
 import {
   BrowserRouter,
   Link,
@@ -9,18 +11,21 @@ import {
 } from "react-router";
 import { Login } from "./pages/Login";
 import { Register } from "./pages/Register";
-import { Home } from "./pages/Home";
+import { Dashboard } from "./pages/Dashboard";
+import { store } from "./store/main";
 
 function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route element={<Login />} path="/login" />
-        <Route element={<Register />} path="/register" />
+    <Provider store={store}>
+      <BrowserRouter>
+        <Routes>
+          <Route element={<Login />} path="/login" />
+          <Route element={<Register />} path="/register" />
 
-        <Route element={<Home />} path="/" />
-      </Routes>
-    </BrowserRouter>
+          <Route element={<Dashboard />} path="/" />
+        </Routes>
+      </BrowserRouter>
+    </Provider>
   );
 }
 
