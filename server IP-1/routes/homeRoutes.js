@@ -5,8 +5,8 @@ const router = express.Router();
 
 router.get("/list", TodoistController.getTasks);
 router.post("/create", TodoistController.createTask);
-router.post("/update", TodoistController.updateTask);
-router.delete("/delete", TodoistController.deleteTask);
+router.post("/update/:id", TodoistController.updateTask);
+router.delete("/delete/:id", TodoistController.deleteTask);
 
 router.get("/tes", (req, res) => {
   res.send("tes");
