@@ -13,6 +13,7 @@ import { Login } from "./pages/Login";
 import { Register } from "./pages/Register";
 import { Dashboard } from "./pages/Dashboard";
 import { store } from "./store/main";
+import CodeChecker from "./pages/CodeChecker";
 
 function App() {
   return (
@@ -23,6 +24,7 @@ function App() {
           <Route element={<Register />} path="/register" />
 
           <Route element={<Dashboard />} path="/" />
+          <Route element={<CodeChecker />} path="/check-code" />
         </Routes>
       </BrowserRouter>
     </Provider>

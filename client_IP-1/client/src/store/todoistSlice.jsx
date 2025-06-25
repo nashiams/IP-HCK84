@@ -42,10 +42,6 @@ export const fetchTodoistTasks = createAsyncThunk(
       const token = localStorage.getItem("access_token"); // Get your app's JWT token
 
       if (!token) {
-        // If no token, user is not authenticated with your app.
-        // Redirect to login or handle as unauthorized.
-        // For now, we'll reject with a specific message.
-        // In a real app, you might trigger a redirect here: window.location.href = '/login';
         return rejectWithValue("Authentication token missing. Please log in.");
       }
 
@@ -82,6 +78,116 @@ export const fetchTodoistTasks = createAsyncThunk(
   }
 );
 
+// Async thunk to update a Todoist task
+export const updateTodoistTask = createAsyncThunk(
+  "todoist/updateTask",
+  async ({ taskId, updates }, { dispatch, rejectWithValue }) => {
+    try {
+      const token = localStorage.getItem("access_token");
+      if (!token) {
+        return rejectWithValue("Authentication token missing. Please log in.");
+      }
+
+      await axios.put(
+        `http://localhost:3000/api/todoist/update/${taskId}`,
+        updates,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+      dispatch(fetchTodoistTasks()); // Re-fetch tasks to update UI
+      return taskId; // Return ID of updated task
+    } catch (error) {
+      console.error(
+        `Error updating task ${taskId}:`,
+        error.response?.data || error.message
+      );
+      if (error.response && error.response.status === 401) {
+        localStorage.removeItem("access_token");
+        window.location.href = "/login";
+      }
+      return rejectWithValue(
+        error.response?.data?.message || `Failed to update task ${taskId}`
+      );
+    }
+  }
+);
+
+// Async thunk to delete a Todoist task
+export const deleteTodoistTask = createAsyncThunk(
+  "todoist/deleteTask",
+  async (taskId, { dispatch, rejectWithValue }) => {
+    try {
+      const token = localStorage.getItem("access_token");
+      if (!token) {
+        return rejectWithValue("Authentication token missing. Please log in.");
+      }
+
+      await axios.delete(`http://localhost:3000/api/todoist/delete/${taskId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      dispatch(fetchTodoistTasks()); // Re-fetch tasks to update UI
+      return taskId; // Return ID of deleted task
+    } catch (error) {
+      console.error(
+        `Error deleting task ${taskId}:`,
+        error.response?.data || error.message
+      );
+      if (error.response && error.response.status === 401) {
+        localStorage.removeItem("access_token");
+        window.location.href = "/login";
+      }
+      return rejectWithValue(
+        error.response?.data?.message || `Failed to delete task ${taskId}`
+      );
+    }
+  }
+);
+
+// Async thunk to complete a Todoist task
+export const completeTodoistTask = createAsyncThunk(
+  "todoist/completeTask",
+  async (taskId, { dispatch, rejectWithValue }) => {
+    try {
+      const token = localStorage.getItem("access_token");
+      if (!token) {
+        return rejectWithValue("Authentication token missing. Please log in.");
+      }
+
+      await axios.put(
+        `http://localhost:3000/api/todoist/update/${taskId}/`,
+        {},
+        {
+          // Empty body for POST request
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+      dispatch(fetchTodoistTasks()); // Re-fetch tasks to update UI
+      return taskId; // Return ID of completed task
+    } catch (error) {
+      console.error(
+        `Error completing task ${taskId}:`,
+        error.response?.data || error.message
+      );
+      if (error.response && error.response.status === 401) {
+        localStorage.removeItem("access_token");
+        window.location.href = "/login";
+      }
+      return rejectWithValue(
+        error.response?.data?.message || `Failed to complete task ${taskId}`
+      );
+    }
+  }
+);
+
 const todoistSlice = createSlice({
   name: "todoist",
   initialState: {
@@ -106,6 +212,42 @@ const todoistSlice = createSlice({
         state.loading = false;
         state.error = action.payload;
         state.tasks = []; // Clear tasks on error
+      })
+      // Add cases for update, delete, complete tasks.
+      // We are re-fetching all tasks on success, so no complex local state mutations are needed here.
+      .addCase(updateTodoistTask.pending, (state) => {
+        state.loading = true; // Set loading state for any API call
+        state.error = null;
+      })
+      .addCase(updateTodoistTask.fulfilled, (state) => {
+        state.loading = false;
+        // Tasks are re-fetched by fetchTodoistTasks dispatch, no direct state update here
+      })
+      .addCase(updateTodoistTask.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+      .addCase(deleteTodoistTask.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(deleteTodoistTask.fulfilled, (state) => {
+        state.loading = false;
+      })
+      .addCase(deleteTodoistTask.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+      .addCase(completeTodoistTask.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(completeTodoistTask.fulfilled, (state) => {
+        state.loading = false;
+      })
+      .addCase(completeTodoistTask.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
       });
   },
 });
