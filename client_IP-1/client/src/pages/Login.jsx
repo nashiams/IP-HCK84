@@ -84,7 +84,7 @@ export function Login() {
 
       // Send the Google ID token to your backend's Google login endpoint
       const backendResponse = await axios.post(
-        `http://localhost:3000/api/auth/google`, // Your backend Google login endpoint
+        `http://localhost:3000/api/authentic/google`, // Your backend Google login endpoint
         { googleToken: response.credential }
       );
 

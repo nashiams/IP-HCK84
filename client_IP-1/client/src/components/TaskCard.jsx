@@ -40,8 +40,13 @@ function TaskCard({ task, styles }) {
 
   // Handle deleting a task
   const handleDelete = () => {
-    if (window.confirm(`Are you sure you want to delete "${task.content}"?`)) {
+    if (true) {
       // Using confirm for simplicity
+      Swal.fire({
+        icon: "success",
+        title: "Deleted",
+        text: "Task deleted successfully!",
+      });
       dispatch(deleteTodoistTask(task.id));
     }
   };
