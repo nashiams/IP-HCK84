@@ -1,31 +1,37 @@
-// __tests__/controllers.test.js
-// Fixed version with case sensitivity handling
-
 const request = require("supertest");
-const axios = require("axios");
 const crypto = require("crypto");
 
-// Mock console.log before importing app to avoid startup messages
+// Mock console.log before importing app to avoid startup messages (uncomment if needed)
 // console.log = jest.fn();
-// jest.mock("../controllers/UserController", () =>
-//   require("../controllers/userController")
-// );
 
-// Mock all dependencies before importing anything else
+// --- Mock axios ---
+jest.mock("axios", () => ({
+  get: jest.fn(),
+  post: jest.fn(),
+  put: jest.fn(),
+  delete: jest.fn(),
+  default: jest.fn(),
+  create: jest.fn(() => ({
+    get: jest.fn(),
+    post: jest.fn(),
+    put: jest.fn(),
+    delete: jest.fn(),
+  })),
+}));
+
+// --- Mock all other dependencies before importing anything else ---
 jest.mock("../models");
 jest.mock("../helpers/jwt");
 jest.mock("../helpers/bcrypts");
-jest.mock("axios");
 jest.mock("crypto", () => {
-  // Import the actual crypto module
   const originalCrypto = jest.requireActual("crypto");
   return {
-    ...originalCrypto, // Spread all original crypto functions
-    randomUUID: jest.fn(() => "test-uuid-12345"), // Override only randomUUID
+    ...originalCrypto,
+    randomUUID: jest.fn(() => "test-uuid-12345"),
   };
 });
 jest.mock("../services/geminiService", () => ({
-  generateStructured: jest.fn(), // This line is corrected to mock the named export
+  generateStructured: jest.fn(),
 }));
 
 // Mock authentication middleware
@@ -33,12 +39,8 @@ jest.mock("../middlewares/authenticate", () => (req, res, next) => {
   next();
 });
 
-// FIX: Mock UserController import case sensitivity issue
-// jest.mock("../controllers/UserController", () =>
-//   require("../controllers/userController")
-// );
-
-// Import dependencies after mocking
+// Import dependencies after mocking - now we can access the mocked axios
+const axios = require("axios");
 const { User } = require("../models");
 const { signToken } = require("../helpers/jwt");
 const { hashPassword, comparePassword } = require("../helpers/bcrypts");
@@ -47,9 +49,13 @@ const { generateStructured } = require("../services/geminiService");
 // Import the actual app
 const app = require("../app");
 
+// Now axios is the mocked version and can be used
+const mockAxios = axios;
+
 describe("All Controllers Tests", () => {
+  // Define variables that need to be accessed across tests
   const validApiKey = "test-todoist-api-key-12345";
-  const validAuthToken = "Bearer valid-jwt-token";
+  const validAuthToken = "Bearer 7e78415613fc979e1e10e64bed0610cf23244265";
 
   // Test data with non-conflicting IDs
   const testUsers = {
@@ -71,7 +77,6 @@ describe("All Controllers Tests", () => {
     },
   };
 
-  // Task IDs starting from 3355791117+
   const testTasks = [
     {
       id: "3355791117",
@@ -146,8 +151,13 @@ describe("All Controllers Tests", () => {
     process.env.TODOIST_API_KEY = "7e78415613fc979e1e10e64bed0610cf23244265";
     process.env.NODE_ENV = "test";
     process.env.CLIENT_URL = "http://localhost:5173";
+  });
 
-    // Setup mock implementations
+  beforeEach(() => {
+    // 1. Clear all mocks
+    jest.clearAllMocks();
+
+    // 2. Set up default mock implementations for helper functions
     hashPassword.mockImplementation((password) => `hashed_${password}`);
     comparePassword.mockImplementation(
       (plain, hashed) => hashed === `hashed_${plain}`
@@ -155,20 +165,26 @@ describe("All Controllers Tests", () => {
     signToken.mockImplementation(
       (payload) => `jwt_token_${JSON.stringify(payload)}`
     );
-    console.log("mockkkkkkkkkkk:", mockGeminiResponse);
     generateStructured.mockResolvedValue(mockGeminiResponse);
 
-    // Default axios mock
-    axios.mockImplementation((config) => {
-      if (config.method === "GET" && config.url.includes("/tasks")) {
+    // 3. Set up default mock implementations for axios
+    mockAxios.default.mockImplementation((config) => {
+      if (
+        config.method === "GET" &&
+        config.url.includes("/tasks") &&
+        config?.headers?.Authorization ===
+          `Bearer ${process.env.TODOIST_API_KEY}`
+      ) {
         return Promise.resolve({ data: testTasks });
       }
       if (
         config.method === "POST" &&
         config.url.includes("/tasks") &&
-        !config.url.includes("/close")
+        !config.url.includes("/close") &&
+        config?.headers?.Authorization ===
+          `Bearer ${process.env.TODOIST_API_KEY}`
       ) {
-        const taskId = config.data.parent_id ? "3355791119" : "3355791120";
+        const taskId = crypto.randomUUID();
         return Promise.resolve({
           data: {
             id: taskId,
@@ -177,23 +193,31 @@ describe("All Controllers Tests", () => {
           },
         });
       }
-      if (config.method === "POST" && config.url.includes("/close")) {
+      if (
+        config.method === "POST" &&
+        config.url.includes("/close") &&
+        config?.headers?.Authorization ===
+          `Bearer ${process.env.TODOIST_API_KEY}`
+      ) {
         return Promise.resolve({ status: 204 });
       }
-      if (config.method === "DELETE") {
+      if (
+        config.method === "DELETE" &&
+        config?.headers?.Authorization ===
+          `Bearer ${process.env.TODOIST_API_KEY}`
+      ) {
         return Promise.resolve({ status: 204 });
       }
-      return Promise.reject(new Error("Unexpected request"));
-    });
-
-    axios.post.mockImplementation((url, data, config) => {
-      if (url.includes("localhost:3000/api/todoist/create")) {
+      if (
+        config.method === "POST" &&
+        config.url.includes("localhost:3000/api/todoist/create")
+      ) {
         return Promise.resolve({
           data: {
             message:
               "Checklist tasks and subtasks created successfully in Todoist.",
             createdTasks: [
-              { id: "3355791120", content: data.message },
+              { id: "3355791120", content: config.data.message },
               {
                 id: "3355791121",
                 content: "Implement user authentication with JWT",
@@ -208,8 +232,36 @@ describe("All Controllers Tests", () => {
           },
         });
       }
-      return Promise.resolve({ data: {} });
+      return Promise.reject(
+        new Error(
+          `Unhandled axios default call in test: ${config.method} ${config.url}`
+        )
+      );
     });
+
+    mockAxios.get.mockImplementation((url, config) =>
+      mockAxios.default({ method: "GET", url, ...config })
+    );
+    mockAxios.post.mockImplementation((url, data, config) =>
+      mockAxios.default({ method: "POST", url, data, ...config })
+    );
+    mockAxios.put.mockImplementation((url, data, config) => {
+      if (
+        url.startsWith("https://api.todoist.com/rest/v2/tasks/") &&
+        config?.headers?.Authorization ===
+          `Bearer ${process.env.TODOIST_API_KEY}`
+      ) {
+        return Promise.resolve({ data: { success: true } });
+      }
+      return Promise.reject(
+        new Error(`Unhandled axios PUT request in test: ${url}`)
+      );
+    });
+    mockAxios.delete.mockImplementation((url, config) =>
+      mockAxios.default({ method: "DELETE", url, ...config })
+    );
+
+    console.log("Mocks are set up for this test run!");
   });
 
   afterAll(async () => {
@@ -217,22 +269,6 @@ describe("All Controllers Tests", () => {
     delete process.env.NODE_ENV;
     delete process.env.CLIENT_URL;
     jest.clearAllMocks();
-  });
-
-  beforeEach(() => {
-    jest.clearAllMocks();
-  });
-
-  // ============ QUICK DEBUG TEST ============
-  console.log("Starting health check test...");
-
-  describe("Quick Debug", () => {
-    console.log("Starting health check test...");
-    it("should check if health endpoint works", async () => {
-      const response = await request(app).get("/api/health");
-      console.log("Health check:", response.status, response.body);
-      expect(response.status).toBe(200);
-    });
   });
 
   // ============ USER CONTROLLER TESTS ============
@@ -255,7 +291,6 @@ describe("All Controllers Tests", () => {
           .post("/api/authentic/")
           .send(testUsers.newUser);
 
-        // Debug logging
         if (response.status !== 201) {
           console.log(
             "Register failed:",
@@ -267,6 +302,298 @@ describe("All Controllers Tests", () => {
 
         expect(response.status).toBe(201);
         expect(response.body).toEqual(mockCreatedUser);
+        expect(User.create).toHaveBeenCalledWith(testUsers.newUser);
+      });
+    });
+  });
+
+  // ============ HEALTH CHECK TEST ============
+  describe("Health Check", () => {
+    it("should return health status", async () => {
+      const response = await request(app).get("/api/health");
+
+      expect(response.status).toBe(200);
+      expect(response.body).toMatchObject({
+        status: "OK",
+        message: expect.any(String),
+        timestamp: expect.any(String),
+      });
+    });
+  });
+});
+
+describe("All Controllers Tests", () => {
+  // Define variables that need to be accessed across tests
+  const validApiKey = "test-todoist-api-key-12345";
+  const validAuthToken = "Bearer 7e78415613fc979e1e10e64bed0610cf23244265";
+
+  // Test data with non-conflicting IDs
+  const testUsers = {
+    newUser: {
+      email: "test.new.user.2024@example.com",
+      password: "TestPassword123!",
+      name: "Test New User 2024",
+    },
+    existingUser: {
+      id: 99001,
+      email: "test.existing.user.2024@example.com",
+      password: "ExistingPassword123!",
+      name: "Test Existing User 2024",
+      google_id: null,
+      todoist_id: null,
+      todoist_access_token: null,
+      todoist_refresh_token: null,
+      todoist_token_expires_at: null,
+    },
+  };
+
+  const testTasks = [
+    {
+      id: "3355791117",
+      content: "Main Task 1",
+      description: "Description 1",
+      parent_id: null,
+    },
+    {
+      id: "3355791118",
+      content: "Subtask 1.1",
+      parent_id: "3355791117",
+    },
+  ];
+
+  const testChecklistData = {
+    message: "Code Review Checklist",
+    simplifiedChecklist: {
+      summary: "Overall the code meets most requirements",
+      checklist: [
+        {
+          itemDescription: "Implement user authentication with JWT",
+          isCompleted: true,
+        },
+        {
+          itemDescription: "Add input validation",
+          isCompleted: false,
+        },
+      ],
+    },
+  };
+
+  const testRequirements = `
+    1. Implement user authentication with JWT
+    2. Add input validation for all endpoints
+    3. Create error handling middleware
+  `;
+
+  const testCode = `
+    const jwt = require('jsonwebtoken');
+
+    function authenticateUser(req, res, next) {
+      const token = req.headers.authorization;
+      if (!token) return res.status(401).json({ error: 'No token' });
+      next();
+    }
+
+    module.exports = { authenticateUser };
+  `;
+
+  const mockGeminiResponse = {
+    summary: "The code partially implements the requirements.",
+    checklist: [
+      {
+        itemDescription: "Implement user authentication with JWT",
+        isCompleted: true,
+        details: "Found authenticateUser function",
+      },
+      {
+        itemDescription: "Add input validation for all endpoints",
+        isCompleted: false,
+        details: "No input validation found",
+      },
+      {
+        itemDescription: "Create error handling middleware",
+        isCompleted: false,
+        details: "No error handling middleware found",
+      },
+    ],
+  };
+
+  // --- beforeAll: For global setup that runs once before all tests ---
+  beforeAll(async () => {
+    // These environment variables are generally stable across tests,
+    // unless a specific test explicitly changes and then restores them.
+    // Putting them here ensures they are set before any test runs.
+    process.env.TODOIST_API_KEY = "7e78415613fc979e1e10e64bed0610cf23244265";
+    process.env.NODE_ENV = "test";
+    process.env.CLIENT_URL = "http://localhost:5173";
+
+    // You can add any other one-time setup here, but keep it minimal.
+  });
+
+  // --- beforeEach: Clean mocks and set default behaviors for EACH test ---
+  beforeEach(() => {
+    // 1. Clear all mocks. This resets call counts and any mockImplementationOnce().
+    jest.clearAllMocks();
+
+    // 2. Set up default mock implementations for helper functions.
+    hashPassword.mockImplementation((password) => `hashed_${password}`);
+    comparePassword.mockImplementation(
+      (plain, hashed) => hashed === `hashed_${plain}`
+    );
+    signToken.mockImplementation(
+      (payload) => `jwt_token_${JSON.stringify(payload)}`
+    );
+    generateStructured.mockResolvedValue(mockGeminiResponse);
+
+    // 3. Set up default mock implementations for axios.
+    // This handles calls like `axios({ method: 'GET', url: '...' })`
+    mockAxios.default.mockImplementation((config) => {
+      if (
+        config.method === "GET" &&
+        config.url.includes("/tasks") &&
+        config?.headers?.Authorization ===
+          `Bearer ${process.env.TODOIST_API_KEY}`
+      ) {
+        return Promise.resolve({ data: testTasks });
+      }
+      if (
+        config.method === "POST" &&
+        config.url.includes("/tasks") &&
+        !config.url.includes("/close") &&
+        config?.headers?.Authorization ===
+          `Bearer ${process.env.TODOIST_API_KEY}`
+      ) {
+        const taskId = crypto.randomUUID(); // Use mocked randomUUID for consistency
+        return Promise.resolve({
+          data: {
+            id: taskId,
+            content: config.data.content,
+            parent_id: config.data.parent_id || null,
+          },
+        });
+      }
+      if (
+        config.method === "POST" &&
+        config.url.includes("/close") &&
+        config?.headers?.Authorization ===
+          `Bearer ${process.env.TODOIST_API_KEY}`
+      ) {
+        return Promise.resolve({ status: 204 });
+      }
+      if (
+        config.method === "DELETE" &&
+        config?.headers?.Authorization ===
+          `Bearer ${process.env.TODOIST_API_KEY}`
+      ) {
+        return Promise.resolve({ status: 204 });
+      }
+      // If the URL matches your internal endpoint being called via axios
+      if (
+        config.method === "POST" &&
+        config.url.includes("localhost:3000/api/todoist/create")
+      ) {
+        return Promise.resolve({
+          data: {
+            message:
+              "Checklist tasks and subtasks created successfully in Todoist.",
+            createdTasks: [
+              { id: "3355791120", content: config.data.message },
+              {
+                id: "3355791121",
+                content: "Implement user authentication with JWT",
+                parent_id: "3355791120",
+              },
+              {
+                id: "3355791122",
+                content: "Add input validation",
+                parent_id: "3355791120",
+              },
+            ],
+          },
+        });
+      }
+      return Promise.reject(
+        new Error(
+          `Unhandled axios default call in test: ${config.method} ${config.url}`
+        )
+      );
+    });
+
+    // These specifically handle calls like `axios.get(...)`, `axios.post(...)` etc.
+    // They generally defer to the `mockAxios.default` if not specifically overridden here.
+    mockAxios.get.mockImplementation((url, config) =>
+      mockAxios.default({ method: "GET", url, ...config })
+    );
+    mockAxios.post.mockImplementation((url, data, config) =>
+      mockAxios.default({ method: "POST", url, data, ...config })
+    );
+    mockAxios.put.mockImplementation((url, data, config) => {
+      if (
+        url.startsWith("https://api.todoist.com/rest/v2/tasks/") &&
+        config?.headers?.Authorization ===
+          `Bearer ${process.env.TODOIST_API_KEY}`
+      ) {
+        return Promise.resolve({ data: { success: true } });
+      }
+      return Promise.reject(
+        new Error(`Unhandled axios PUT request in test: ${url}`)
+      );
+    });
+    mockAxios.delete.mockImplementation((url, config) =>
+      mockAxios.default({ method: "DELETE", url, ...config })
+    );
+
+    console.log("Mocks are set up for this test run!");
+  });
+
+  afterAll(async () => {
+    // Clean up global environment variables that were set for the suite
+    delete process.env.TODOIST_API_KEY;
+    delete process.env.NODE_ENV;
+    delete process.env.CLIENT_URL;
+    jest.clearAllMocks(); // Clear mocks one last time after all tests
+  });
+
+  // ============ QUICK DEBUG TEST ============
+  describe("Quick Debug", () => {
+    it("should check if health endpoint works", async () => {
+      const response = await request(app).get("/api/health");
+      // console.log("Health check:", response.status, response.body); // Uncomment for debug
+      expect(response.status).toBe(200);
+    });
+  });
+
+  // ============ USER CONTROLLER TESTS ============
+  describe("UserController", () => {
+    describe("POST /api/authentic/", () => {
+      it("should successfully register a new user", async () => {
+        // Corrected mockCreatedUser to expect string dates, or use toMatchObject
+        const mockCreatedUser = {
+          id: 99003,
+          ...testUsers.newUser,
+          password: "hashed_TestPassword123!",
+          google_id: null,
+          todoist_id: null,
+          createdAt: expect.any(String), // Expect any string
+          updatedAt: expect.any(String), // Expect any string
+        };
+
+        User.create.mockResolvedValue(mockCreatedUser);
+
+        const response = await request(app)
+          .post("/api/authentic/")
+          .send(testUsers.newUser);
+
+        if (response.status !== 201) {
+          console.log(
+            "Register failed:",
+            response.status,
+            response.body,
+            response.text
+          );
+        }
+
+        expect(response.status).toBe(201);
+        expect(response.body).toEqual(mockCreatedUser); // Use toEqual with expect.any(String)
         expect(User.create).toHaveBeenCalledWith(testUsers.newUser);
       });
 
@@ -391,58 +718,77 @@ describe("All Controllers Tests", () => {
   describe("TodoistController", () => {
     describe("GET /api/todoist/list", () => {
       it("should retrieve all tasks successfully", async () => {
+        // This test's mock is already handled by the default axios.default mock in beforeEach
         const response = await request(app)
           .get("/api/todoist/list")
-          .set("Authorization", validAuthToken);
+          .set(
+            "Authorization",
+            "Bearer 7e78415613fc979e1e10e64bed0610cf23244265"
+          );
 
         expect(response.status).toBe(200);
-        expect(response.body).toEqual(testTasks);
-        expect(axios).toHaveBeenCalledWith({
-          method: "GET",
-          url: "https://api.todoist.com/rest/v2/tasks",
-          headers: {
-            Authorization: `Bearer ${validApiKey}`,
-            "Content-Type": "application/json",
-          },
-        });
+        expect(response.body).toEqual(testTasks); // This should pass now with the default mock
+        expect(mockAxios.default).toHaveBeenCalledWith(
+          expect.objectContaining({
+            method: "GET",
+            url: "https://api.todoist.com/rest/v2/tasks",
+            headers: {
+              Authorization: `Bearer ${validApiKey}`, // Check against validApiKey from the test scope
+              "Content-Type": "application/json",
+            },
+          })
+        );
       });
 
       it("should handle Todoist API errors", async () => {
-        const apiError = new Error("Todoist API Error");
-        apiError.response = {
-          status: 403,
-          data: { error: "Invalid API key" },
-        };
-        axios.mockRejectedValueOnce(apiError);
+        // Override the default axios mock for this specific test
+        mockAxios.default.mockImplementationOnce(() => {
+          const apiError = new Error("Todoist API Error");
+          apiError.response = {
+            status: 403,
+            data: { error: "Invalid API key" },
+          };
+          throw apiError;
+        });
 
         const response = await request(app)
           .get("/api/todoist/list")
-          .set("Authorization", validAuthToken);
+          .set(
+            "Authorization",
+            "Bearer 7e78415613fc979e1e10e64bed0610cf23244265"
+          );
 
         expect(response.status).toBe(403);
         expect(response.body.message).toBe("Invalid API key");
       });
 
       it("should handle missing API key configuration", async () => {
-        const originalApiKey = process.env.TODOIST_API_KEY;
-        delete process.env.TODOIST_API_KEY;
+        const originalApiKey = process.env.TODOIST_API_KEY; // Store original
+        delete process.env.TODOIST_API_KEY; // Unset for this test
 
         const response = await request(app)
           .get("/api/todoist/list")
-          .set("Authorization", validAuthToken);
+          .set(
+            "Authorization",
+            "Bearer 7e78415613fc979e1e10e64bed0610cf23244265"
+          );
 
-        expect(response.status).toBe(500);
+        expect(response.status).toBe(500); // Or whatever your app returns for internal config errors
         expect(response.body.message).toContain("Todoist API key is missing");
 
-        process.env.TODOIST_API_KEY = originalApiKey;
+        process.env.TODOIST_API_KEY = originalApiKey; // Restore it after the test
       });
     });
 
     describe("POST /api/todoist/create", () => {
       it("should create main task and subtasks successfully", async () => {
+        // This test's mock is already handled by the default axios.default mock in beforeEach
         const response = await request(app)
           .post("/api/todoist/create")
-          .set("Authorization", validAuthToken)
+          .set(
+            "Authorization",
+            "Bearer 7e78415613fc979e1e10e64bed0610cf23244265"
+          )
           .send(testChecklistData);
 
         expect(response.status).toBe(201);
@@ -453,8 +799,11 @@ describe("All Controllers Tests", () => {
       it("should handle invalid input format", async () => {
         const response = await request(app)
           .post("/api/todoist/create")
-          .set("Authorization", validAuthToken)
-          .send({ message: "Invalid format" });
+          .set(
+            "Authorization",
+            "Bearer 7e78415613fc979e1e10e64bed0610cf23244265"
+          )
+          .send({ message: "Invalid format" }); // This will hit the general unhandled axios.post case by default
 
         expect(response.status).toBe(400);
         expect(response.body.message).toContain("Invalid input format");
@@ -467,7 +816,7 @@ describe("All Controllers Tests", () => {
             ...testChecklistData.simplifiedChecklist,
             checklist: [
               { itemDescription: "Valid item", isCompleted: false },
-              { isCompleted: true },
+              { isCompleted: true }, // Missing itemDescription
               { itemDescription: "Another valid item", isCompleted: false },
             ],
           },
@@ -475,7 +824,10 @@ describe("All Controllers Tests", () => {
 
         const response = await request(app)
           .post("/api/todoist/create")
-          .set("Authorization", validAuthToken)
+          .set(
+            "Authorization",
+            "Bearer 7e78415613fc979e1e10e64bed0610cf23244265"
+          )
           .send(dataWithMissingDesc);
 
         expect(response.status).toBe(201);
@@ -483,16 +835,21 @@ describe("All Controllers Tests", () => {
       });
 
       it("should handle Todoist API errors during task creation", async () => {
-        const apiError = new Error("Todoist API Error");
-        apiError.response = {
-          status: 400,
-          data: { error: "Task content cannot be empty" },
-        };
-        axios.mockRejectedValueOnce(apiError);
+        mockAxios.default.mockImplementationOnce(() => {
+          const apiError = new Error("Todoist API Error");
+          apiError.response = {
+            status: 400,
+            data: { error: "Task content cannot be empty" },
+          };
+          throw apiError;
+        });
 
         const response = await request(app)
           .post("/api/todoist/create")
-          .set("Authorization", validAuthToken)
+          .set(
+            "Authorization",
+            "Bearer 7e78415613fc979e1e10e64bed0610cf23244265"
+          )
           .send(testChecklistData);
 
         expect(response.status).toBe(400);
@@ -508,13 +865,17 @@ describe("All Controllers Tests", () => {
           description: "Updated Description",
         };
 
-        axios.mockResolvedValueOnce({
+        // This mock will be specific to this test
+        mockAxios.put.mockResolvedValueOnce({
           data: { id: taskId, ...updates },
         });
 
         const response = await request(app)
           .put(`/api/todoist/update/${taskId}`)
-          .set("Authorization", validAuthToken)
+          .set(
+            "Authorization",
+            "Bearer 7e78415613fc979e1e10e64bed0610cf23244265"
+          )
           .send(updates);
 
         expect(response.status).toBe(200);
@@ -524,7 +885,10 @@ describe("All Controllers Tests", () => {
       it("should handle empty update data", async () => {
         const response = await request(app)
           .put("/api/todoist/update/3355791117")
-          .set("Authorization", validAuthToken)
+          .set(
+            "Authorization",
+            "Bearer 7e78415613fc979e1e10e64bed0610cf23244265"
+          )
           .send({});
 
         expect(response.status).toBe(400);
@@ -534,12 +898,29 @@ describe("All Controllers Tests", () => {
       it("should complete task using duplicate update route", async () => {
         const taskId = "3355791117";
 
+        // Mock the specific call to close the task
+        mockAxios.post.mockImplementationOnce((url, data, config) => {
+          if (
+            url === `https://api.todoist.com/rest/v2/tasks/${taskId}/close` &&
+            config?.headers?.Authorization ===
+              `Bearer ${process.env.TODOIST_API_KEY}`
+          ) {
+            return Promise.resolve({ status: 204 });
+          }
+          return Promise.reject(
+            new Error(`Unhandled axios POST to close task: ${url}`)
+          );
+        });
+
         const response = await request(app)
           .put(`/api/todoist/update/${taskId}`)
-          .set("Authorization", validAuthToken)
+          .set(
+            "Authorization",
+            "Bearer 7e78415613fc979e1e10e64bed0610cf23244265"
+          )
           .send({ completed: true });
 
-        expect(response.status).toBe(200);
+        expect(response.status).toBe(200); // Assuming your update route returns 200 for successful completion
       });
     });
 
@@ -549,22 +930,30 @@ describe("All Controllers Tests", () => {
 
         const response = await request(app)
           .delete(`/api/todoist/delete/${taskId}`)
-          .set("Authorization", validAuthToken);
+          .set(
+            "Authorization",
+            "Bearer 7e78415613fc979e1e10e64bed0610cf23244265"
+          );
 
         expect(response.status).toBe(204);
       });
 
       it("should handle deletion errors", async () => {
-        const apiError = new Error("Todoist API Error");
-        apiError.response = {
-          status: 404,
-          data: { error: "Task not found" },
-        };
-        axios.mockRejectedValueOnce(apiError);
+        mockAxios.default.mockImplementationOnce(() => {
+          const apiError = new Error("Todoist API Error");
+          apiError.response = {
+            status: 404,
+            data: { error: "Task not found" },
+          };
+          throw apiError;
+        });
 
         const response = await request(app)
           .delete("/api/todoist/delete/9999999999")
-          .set("Authorization", validAuthToken);
+          .set(
+            "Authorization",
+            "Bearer 7e78415613fc979e1e10e64bed0610cf23244265"
+          );
 
         expect(response.status).toBe(404);
       });
@@ -574,7 +963,10 @@ describe("All Controllers Tests", () => {
       it("should return test response", async () => {
         const response = await request(app)
           .get("/api/todoist/tes")
-          .set("Authorization", validAuthToken);
+          .set(
+            "Authorization",
+            "Bearer 7e78415613fc979e1e10e64bed0610cf23244265"
+          );
 
         expect(response.status).toBe(200);
         expect(response.text).toBe("tes");
@@ -588,7 +980,10 @@ describe("All Controllers Tests", () => {
       it("should return test response", async () => {
         const response = await request(app)
           .get("/api/codecheck/tes")
-          .set("Authorization", validAuthToken);
+          .set(
+            "Authorization",
+            "Bearer 7e78415613fc979e1e10e64bed0610cf23244265"
+          );
 
         expect(response.status).toBe(200);
         expect(response.text).toBe("tes");
@@ -599,7 +994,10 @@ describe("All Controllers Tests", () => {
       it("should successfully analyze code and create Todoist tasks", async () => {
         const response = await request(app)
           .post("/api/codecheck/")
-          .set("Authorization", validAuthToken)
+          .set(
+            "Authorization",
+            "Bearer 7e78415613fc979e1e10e64bed0610cf23244265"
+          )
           .send({
             requirements: testRequirements,
             code: testCode,
@@ -617,7 +1015,10 @@ describe("All Controllers Tests", () => {
       it("should handle missing requirements", async () => {
         const response = await request(app)
           .post("/api/codecheck/")
-          .set("Authorization", validAuthToken)
+          .set(
+            "Authorization",
+            "Bearer 7e78415613fc979e1e10e64bed0610cf23244265"
+          )
           .send({ code: testCode });
 
         expect(response.status).toBe(400);
@@ -629,7 +1030,10 @@ describe("All Controllers Tests", () => {
       it("should handle empty requirements", async () => {
         const response = await request(app)
           .post("/api/codecheck/")
-          .set("Authorization", validAuthToken)
+          .set(
+            "Authorization",
+            "Bearer 7e78415613fc979e1e10e64bed0610cf23244265"
+          )
           .send({
             requirements: "   ",
             code: testCode,
@@ -644,7 +1048,10 @@ describe("All Controllers Tests", () => {
       it("should handle missing code", async () => {
         const response = await request(app)
           .post("/api/codecheck/")
-          .set("Authorization", validAuthToken)
+          .set(
+            "Authorization",
+            "Bearer 7e78415613fc979e1e10e64bed0610cf23244265"
+          )
           .send({ requirements: testRequirements });
 
         expect(response.status).toBe(400);
@@ -656,7 +1063,10 @@ describe("All Controllers Tests", () => {
       it("should handle empty code", async () => {
         const response = await request(app)
           .post("/api/codecheck/")
-          .set("Authorization", validAuthToken)
+          .set(
+            "Authorization",
+            "Bearer 7e78415613fc979e1e10e64bed0610cf23244265"
+          )
           .send({
             requirements: testRequirements,
             code: "",
@@ -674,7 +1084,10 @@ describe("All Controllers Tests", () => {
 
         const response = await request(app)
           .post("/api/codecheck/")
-          .set("Authorization", validAuthToken)
+          .set(
+            "Authorization",
+            "Bearer 7e78415613fc979e1e10e64bed0610cf23244265"
+          )
           .send({
             requirements: testRequirements,
             code: testCode,
@@ -692,7 +1105,10 @@ describe("All Controllers Tests", () => {
 
         const response = await request(app)
           .post("/api/codecheck/")
-          .set("Authorization", validAuthToken)
+          .set(
+            "Authorization",
+            "Bearer 7e78415613fc979e1e10e64bed0610cf23244265"
+          )
           .send({
             requirements: testRequirements,
             code: testCode,
@@ -709,7 +1125,10 @@ describe("All Controllers Tests", () => {
 
         const response = await request(app)
           .post("/api/codecheck/")
-          .set("Authorization", validAuthToken)
+          .set(
+            "Authorization",
+            "Bearer 7e78415613fc979e1e10e64bed0610cf23244265"
+          )
           .send({
             requirements: testRequirements,
             code: testCode,
@@ -725,11 +1144,14 @@ describe("All Controllers Tests", () => {
         const todoistError = new Error("Todoist API specific error");
         todoistError.name = "TodoistApiError";
         todoistError.statusCode = 403;
-        axios.post.mockRejectedValueOnce(todoistError);
+        mockAxios.post.mockRejectedValueOnce(todoistError); // Use mockAxios.post here
 
         const response = await request(app)
           .post("/api/codecheck/")
-          .set("Authorization", validAuthToken)
+          .set(
+            "Authorization",
+            "Bearer 7e78415613fc979e1e10e64bed0610cf23244265"
+          )
           .send({
             requirements: testRequirements,
             code: testCode,
@@ -742,7 +1164,10 @@ describe("All Controllers Tests", () => {
       it("should handle non-string requirements", async () => {
         const response = await request(app)
           .post("/api/codecheck/")
-          .set("Authorization", validAuthToken)
+          .set(
+            "Authorization",
+            "Bearer 7e78415613fc979e1e10e64bed0610cf23244265"
+          )
           .send({
             requirements: { invalid: "object" },
             code: testCode,
@@ -757,7 +1182,10 @@ describe("All Controllers Tests", () => {
       it("should handle non-string code", async () => {
         const response = await request(app)
           .post("/api/codecheck/")
-          .set("Authorization", validAuthToken)
+          .set(
+            "Authorization",
+            "Bearer 7e78415613fc979e1e10e64bed0610cf23244265"
+          )
           .send({
             requirements: testRequirements,
             code: 12345,
@@ -771,11 +1199,14 @@ describe("All Controllers Tests", () => {
 
       it("should process large code submissions", async () => {
         const largeCode =
-          "function test() {\n" + '  console.log("test");\n'.repeat(100) + "}";
+          "function test() {\n" + '   console.log("test");\n'.repeat(100) + "}";
 
         const response = await request(app)
           .post("/api/codecheck/")
-          .set("Authorization", validAuthToken)
+          .set(
+            "Authorization",
+            "Bearer 7e78415613fc979e1e10e64bed0610cf23244265"
+          )
           .send({
             requirements: testRequirements,
             code: largeCode,
@@ -804,7 +1235,10 @@ describe("All Controllers Tests", () => {
 
         const response = await request(app)
           .post("/api/codecheck/")
-          .set("Authorization", validAuthToken)
+          .set(
+            "Authorization",
+            "Bearer 7e78415613fc979e1e10e64bed0610cf23244265"
+          )
           .send({
             requirements: testRequirements,
             code: testCode,

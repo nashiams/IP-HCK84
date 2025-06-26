@@ -1,7 +1,8 @@
 const axios = require("axios"); // For making HTTP requests (e.g., to your own Todoist endpoint)
 const crypto = require("crypto"); // Node.js built-in module for generating unique IDs (for X-Request-Id)
 // const generateStructured = require("../services/geminiService"); // Import the unchanged geminiService
-const { default: generateStructured } = require("../services/geminiService");
+// const { default: generateStructured } = require("../services/geminiService");
+const { generateStructured } = require("../services/geminiService");
 
 // Define the JSON schema for the AI's output.
 // This ensures the Gemini API returns data in a predictable and usable format.

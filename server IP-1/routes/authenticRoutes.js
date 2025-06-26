@@ -4,6 +4,7 @@ const UserController = require("../controllers/userController"); //gua ganti jad
 
 router.post("/", UserController.register);
 router.post("/login", UserController.login);
+router.post("/google", UserController.google);
 router.get("/tes", (req, res) => {
   res.send("tes");
 });

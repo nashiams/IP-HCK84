@@ -1,4 +1,4 @@
-const { default: axios } = require("axios");
+const axios = require("axios");
 
 class TodoistController {
   static todoistApiUrl = "https://api.todoist.com/rest/v2";
@@ -6,6 +6,7 @@ class TodoistController {
   // Helper to get the API Key from environment variables
   static getApiKey() {
     const apiKey = process.env.TODOIST_API_KEY;
+
     if (!apiKey) {
       // This is a critical configuration error. Log it and throw.
       console.error(
@@ -24,7 +25,9 @@ class TodoistController {
   // This will retrieve all tasks and subtasks from the configured Todoist account.
   static async getTasks(req, res, next) {
     try {
+      console.log("masuk");
       const todoistApiKey = TodoistController.getApiKey();
+      console.log("Using Todoist API Key:", todoistApiKey);
 
       const response = await axios({
         method: "GET",
@@ -56,8 +59,11 @@ class TodoistController {
   // This function will create a main task and then its subtasks based on the provided JSON structure.
   static async createTask(req, res, next) {
     try {
+      console.log("masukkkkkkkkkkkk");
       const todoistApiKey = TodoistController.getApiKey();
       const { message, simplifiedChecklist } = req.body; // Expecting the exact JSON structure you provided
+
+      console.log("masukkkkkkkkkkkk");
 
       if (
         !message ||
@@ -79,6 +85,8 @@ class TodoistController {
         content: message, // 'message' from your JSON maps to main task content
         description: summary, // 'summary' from your JSON maps to main task description
       };
+
+      console.log(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>", mainTaskPayload);
 
       const mainTaskResponse = await axios({
         method: "POST",
