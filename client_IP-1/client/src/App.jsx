@@ -14,6 +14,7 @@ import { Register } from "./pages/Register";
 import { Dashboard } from "./pages/Dashboard";
 import { store } from "./store/main";
 import CodeChecker from "./pages/CodeChecker";
+import AuthLayout from "./layout/AuthLayout";
 
 function App() {
   return (
@@ -22,9 +23,12 @@ function App() {
         <Routes>
           <Route element={<Login />} path="/login" />
           <Route element={<Register />} path="/register" />
+          {/* <Route element={<} */}
 
-          <Route element={<Dashboard />} path="/" />
-          <Route element={<CodeChecker />} path="/check-code" />
+          <Route element={<AuthLayout />}>
+            <Route element={<Dashboard />} path="/" />
+            <Route element={<CodeChecker />} path="/check-code" />
+          </Route>
         </Routes>
       </BrowserRouter>
     </Provider>
