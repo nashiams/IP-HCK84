@@ -160,7 +160,7 @@ export const completeTodoistTask = createAsyncThunk(
       }
 
       await axios.put(
-        `http://localhost:3000/api/todoist/update/${taskId}/`,
+        `http://localhost:3000/api/todoist/complete/${taskId}/`,
         {},
         {
           // Empty body for POST request

@@ -8,40 +8,42 @@ export function Dashboard() {
   const { tasks, loading, error } = useSelector((state) => state.todoist);
 
   useEffect(() => {
-    // Fetch tasks when the component mounts
-    dispatch(fetchTodoistTasks());
-  }, [dispatch]);
+    if (tasks.length === 0 && !loading && !error) {
+      dispatch(fetchTodoistTasks());
+    }
+  }, [dispatch, tasks.length, loading, error]);
 
-  // Styling based on the provided palette
   const styles = {
     container: {
       minHeight: "100vh",
-      backgroundColor: "#0d1117", // Very dark gray/black background
-      padding: "20px",
-      fontFamily: "Roboto, sans-serif",
-      color: "#f0f6fc", // Light gray/white text
+      backgroundColor: "#0F0F12",
+      padding: "24px",
+      fontFamily: "Cabin, sans-serif",
+      color: "#f0f6fc",
     },
     header: {
-      color: "#58a6ff", // Blue accent for headers
-      fontFamily: "Cascadia Code, monospace",
-      marginBottom: "30px",
-      textAlign: "center",
+      color: "#f0f6fc",
+      fontFamily: "Cabin, sans-serif",
+      marginBottom: "32px",
+      textAlign: "left",
+      fontWeight: "700",
+      fontSize: "28px",
     },
     card: {
-      backgroundColor: "#161b22", // Very dark gray/black for card background
-      border: "1px solid #30363d", // Medium gray border
-      borderRadius: "8px",
-      boxShadow: "0 4px 8px rgba(0, 0, 0, 0.2)",
-      marginBottom: "20px",
-      color: "#f0f6fc", // Light gray/white text
+      backgroundColor: "#161b22",
+      border: "1px solid #30363d",
+      borderRadius: "12px",
+      boxShadow: "0 1px 3px rgba(0, 0, 0, 0.12)",
+      marginBottom: "24px",
+      color: "#f0f6fc",
     },
     cardHeader: {
-      backgroundColor: "#21262d", // Medium gray for card header
-      borderBottom: "1px solid #30363d",
-      padding: "15px 20px",
-      fontWeight: "bold",
-      fontSize: "1.25rem",
-      borderRadius: "8px 8px 0 0",
+      backgroundColor: "#0F0F12",
+      borderBottom: "1px solid #21262d",
+      padding: "16px 20px",
+      fontWeight: "600",
+      fontSize: "16px",
+      borderRadius: "12px 12px 0 0",
       display: "flex",
       justifyContent: "space-between",
       alignItems: "center",
@@ -50,92 +52,176 @@ export function Dashboard() {
       padding: "20px",
     },
     subtaskItem: {
-      backgroundColor: "#0d1117", // Darker background for subtask items
-      border: "1px solid #21262d", // Medium gray border for subtask
-      borderRadius: "5px",
-      padding: "10px 15px",
-      marginBottom: "10px",
+      backgroundColor: "#0d1117",
+      border: "1px solid #21262d",
+      borderRadius: "6px",
+      padding: "12px 16px",
+      marginBottom: "8px",
       display: "flex",
       alignItems: "center",
-      fontSize: "0.95rem",
-      gap: "10px", // Space between checkbox and text
+      fontSize: "13px",
+      gap: "12px",
     },
     completedSubtask: {
       textDecoration: "line-through",
-      color: "#8b949e", // Faded color for completed tasks
+      color: "#8b949e",
     },
     checkbox: {
-      accentColor: "#238636", // Green for success states
-      width: "18px",
-      height: "18px",
+      accentColor: "#238636",
+      width: "16px",
+      height: "16px",
     },
     statusText: {
-      color: "#58a6ff", // Blue for default status
-      fontSize: "0.9rem",
+      color: "#1f6feb",
+      fontSize: "15px",
     },
     completedStatus: {
-      color: "#2ea043", // Green for completed status
+      color: "#238636",
     },
     errorText: {
-      color: "#dc4c3e", // Todoist red for error (using previous color for consistency)
+      color: "#da3633",
       textAlign: "center",
-      marginTop: "20px",
+      marginTop: "40px",
     },
     loadingText: {
-      color: "#58a6ff",
+      color: "#1f6feb",
       textAlign: "center",
-      marginTop: "20px",
+      marginTop: "40px",
     },
   };
 
   if (loading) {
     return (
-      <div
-        className="container d-flex align-items-center justify-content-center"
-        style={styles.container}
-      >
-        <p className="lead" style={styles.loadingText}>
-          Loading tasks...
-        </p>
-      </div>
+      <>
+        <link
+          href="https://fonts.googleapis.com/css2?family=Cabin:wght@600;700&display=swap"
+          rel="stylesheet"
+        />
+        <div
+          className="container-fluid d-flex align-items-center justify-content-center"
+          style={styles.container}
+        >
+          <div className="text-center">
+            <div
+              className="spinner-border mb-3"
+              style={{ color: "#1f6feb" }}
+              role="status"
+            >
+              <span className="visually-hidden">Loading...</span>
+            </div>
+            <p className="lead" style={styles.loadingText}>
+              Loading tasks...
+            </p>
+          </div>
+        </div>
+      </>
     );
   }
 
   if (error) {
     return (
-      <div
-        className="container d-flex align-items-center justify-content-center"
-        style={styles.container}
-      >
-        <p className="lead" style={styles.errorText}>
-          Error: {error}
-        </p>
-      </div>
+      <>
+        <link
+          href="https://fonts.googleapis.com/css2?family=Cabin:wght@600;700&display=swap"
+          rel="stylesheet"
+        />
+        <div
+          className="container-fluid d-flex align-items-center justify-content-center"
+          style={styles.container}
+        >
+          <div className="text-center">
+            <i
+              className="bi bi-exclamation-triangle mb-3"
+              style={{ fontSize: "48px", color: "#da3633" }}
+            ></i>
+            <p className="lead" style={styles.errorText}>
+              Error: {error}
+            </p>
+          </div>
+        </div>
+      </>
     );
   }
 
   return (
-    <div className="container-fluid" style={styles.container}>
-      <h1 className="my-4" style={styles.header}>
-        Your Todoist Tasks
-      </h1>
-      <div className="row">
-        {tasks.length === 0 ? (
-          <div className="col-12">
-            <p
-              className="lead text-center"
-              style={{ color: styles.container.color }}
-            >
-              No tasks found in the connected Todoist account.
+    <>
+      <link
+        href="https://fonts.googleapis.com/css2?family=Cabin:wght@600;700&display=swap"
+        rel="stylesheet"
+      />
+      <link
+        href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css"
+        rel="stylesheet"
+      />
+
+      <div className="container-fluid" style={styles.container}>
+        {/* Header Section */}
+        <div className="d-flex align-items-center justify-content-between mb-4">
+          <div>
+            <h1 style={styles.header}>
+              <i className="bi bi-kanban me-3" style={{ color: "#1f6feb" }}></i>
+              Your Todoist Tasks
+            </h1>
+            <p style={{ color: "#8b949e", fontSize: "14px", margin: 0 }}>
+              Manage and track your tasks efficiently
             </p>
           </div>
-        ) : (
-          tasks.map((task) => (
-            <TaskCard key={task.id} task={task} styles={styles} />
-          ))
-        )}
+          <div className="d-flex align-items-center gap-2">
+            <span style={{ fontSize: "12px", color: "#8b949e" }}>
+              Total Tasks: {tasks.length}
+            </span>
+            <span
+              className="badge rounded-pill px-2 py-1"
+              style={{
+                backgroundColor: "#238636",
+                fontSize: "11px",
+              }}
+            >
+              {tasks.filter((task) => task.is_completed).length} Completed
+            </span>
+          </div>
+        </div>
+
+        {/* Tasks Grid */}
+        <div className="row">
+          {tasks.length === 0 ? (
+            <div className="col-12">
+              <div
+                className="card border-0 text-center py-5"
+                style={{
+                  backgroundColor: "#161b22",
+                  border: "1px solid #30363d",
+                  borderRadius: "12px",
+                }}
+              >
+                <div className="card-body">
+                  <i
+                    className="bi bi-inbox mb-3"
+                    style={{ fontSize: "48px", color: "#6e7681" }}
+                  ></i>
+                  <h5
+                    style={{
+                      color: "#f0f6fc",
+                      fontFamily: "Cabin, sans-serif",
+                      fontWeight: "600",
+                    }}
+                  >
+                    No tasks found
+                  </h5>
+                  <p style={{ color: "#8b949e", fontSize: "14px" }}>
+                    No tasks found in the connected Todoist account.
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            tasks.map((task) => (
+              <TaskCard key={task.id} task={task} styles={styles} />
+            ))
+          )}
+        </div>
       </div>
-    </div>
+    </>
   );
 }
 

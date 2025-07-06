@@ -1,146 +1,176 @@
-import React, { useState } from "react";
+import React from "react";
+import { useDispatch, useSelector } from "react-redux";
 import axios from "axios";
 import Swal from "sweetalert2";
+import Prism from "prismjs";
+import "prismjs/components/prism-javascript";
+import Editor from "react-simple-code-editor";
+import "prismjs/themes/prism-tomorrow.css";
+import {
+  setRequirements,
+  setCode,
+  setLoading,
+  setError,
+  setAnalysisResult,
+  clearAll,
+} from "../store/codeSlice";
 
 function CodeChecker() {
-  const [requirements, setRequirements] = useState("");
-  const [code, setCode] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [analysisResult, setAnalysisResult] = useState(null); // To store the AI's checklist response
+  const dispatch = useDispatch();
 
-  // Styling based on the provided palette
+  // Get state from Redux
+  const { requirements, code, loading, error, analysisResult } = useSelector(
+    (state) => state.code
+  );
+
   const styles = {
     container: {
       minHeight: "100vh",
-      backgroundColor: "#0d1117", // Very dark gray/black background
-      padding: "20px",
-      fontFamily: "Roboto, sans-serif",
-      color: "#f0f6fc", // Light gray/white text
+      backgroundColor: "#0F0F12",
+      padding: "24px",
+      fontFamily: "Cabin, sans-serif",
+      color: "#f0f6fc",
     },
     header: {
-      color: "#58a6ff", // Blue accent for headers
-      fontFamily: "Cascadia Code, monospace",
-      marginBottom: "30px",
-      textAlign: "center",
+      color: "#f0f6fc",
+      fontFamily: "Cabin, sans-serif",
+      marginBottom: "32px",
+      textAlign: "left",
+      fontWeight: "700",
+      fontSize: "28px",
     },
     textarea: {
-      backgroundColor: "#161b22", // Medium gray for secondary backgrounds
-      color: "#f0f6fc", // Light gray/white for text
-      border: "1px solid #30363d", // Medium gray border
-      borderRadius: "8px",
-      padding: "15px",
-      resize: "vertical", // Allow vertical resizing
-      minHeight: "200px", // Minimum height
-      fontFamily: "Roboto, sans-serif",
-      fontSize: "0.95rem",
+      backgroundColor: "#161b22",
+      color: "#f0f6fc",
+      border: "1px solid #30363d",
+      borderRadius: "12px",
+      padding: "16px",
+      resize: "vertical",
+      minHeight: "400px",
+      fontFamily: "Cabin, sans-serif",
+      fontSize: "14px",
+      lineHeight: "1.5",
+    },
+    codeTextarea: {
+      backgroundColor: "#0d1117",
+      color: "#e6edf3",
+      border: "1px solid #30363d",
+      borderRadius: "12px",
+      padding: "16px",
+      resize: "vertical",
+      minHeight: "400px",
+      fontFamily: "'Ubuntu Mono', 'Courier New', monospace",
+      fontSize: "14px",
+      lineHeight: "1.6",
+      tabSize: 2,
     },
     buttonPrimary: {
-      backgroundColor: "#58a6ff", // Blue accent
+      backgroundColor: "#1f6feb",
       color: "#fff",
       border: "none",
       borderRadius: "8px",
-      padding: "10px 20px",
-      fontSize: "1rem",
-      fontWeight: "bold",
+      padding: "12px 24px",
+      fontSize: "14px",
+      fontWeight: "600",
       transition: "background-color 0.3s ease",
       cursor: "pointer",
     },
     buttonClear: {
-      backgroundColor: "#30363d", // Medium gray
-      color: "#e6edf3",
+      backgroundColor: "#6e7681",
+      color: "#fff",
       border: "none",
       borderRadius: "8px",
-      padding: "10px 20px",
-      fontSize: "1rem",
-      fontWeight: "bold",
+      padding: "12px 24px",
+      fontSize: "14px",
+      fontWeight: "600",
       transition: "background-color 0.3s ease",
       cursor: "pointer",
     },
     buttonHoverPrimary: {
-      backgroundColor: "#1f6feb", // Darker blue on hover
+      backgroundColor: "#1a5feb",
     },
     buttonHoverClear: {
-      backgroundColor: "#21262d", // Darker gray on hover
+      backgroundColor: "#5d6570",
     },
     resultCard: {
       backgroundColor: "#161b22",
       border: "1px solid #30363d",
-      borderRadius: "8px",
-      padding: "20px",
-      marginTop: "30px",
+      borderRadius: "12px",
+      padding: "24px",
+      marginTop: "32px",
       color: "#f0f6fc",
     },
     resultHeader: {
-      color: "#58a6ff",
-      fontFamily: "Cascadia Code, monospace",
-      marginBottom: "15px",
-      fontSize: "1.5rem",
+      color: "#f0f6fc",
+      fontFamily: "Cabin, sans-serif",
+      marginBottom: "20px",
+      fontSize: "20px",
+      fontWeight: "700",
     },
     summaryText: {
-      fontSize: "1.1rem",
-      marginBottom: "20px",
+      fontSize: "14px",
+      marginBottom: "24px",
       lineHeight: "1.6",
+      color: "#e6edf3",
     },
     checklistTitle: {
       color: "#f0f6fc",
-      fontSize: "1.2rem",
-      marginBottom: "10px",
-      fontWeight: "bold",
+      fontSize: "16px",
+      marginBottom: "16px",
+      fontWeight: "600",
     },
     checklistItem: {
       backgroundColor: "#0d1117",
       border: "1px solid #21262d",
-      borderRadius: "5px",
-      padding: "10px 15px",
-      marginBottom: "10px",
+      borderRadius: "8px",
+      padding: "16px",
+      marginBottom: "12px",
       display: "flex",
-      flexDirection: "column", // Stack description and details
-      gap: "5px",
+      flexDirection: "column",
+      gap: "8px",
     },
     checklistItemDescription: {
-      fontSize: "1rem",
-      fontWeight: "bold",
+      fontSize: "14px",
+      fontWeight: "600",
+      color: "#f0f6fc",
     },
     checklistItemDetails: {
-      fontSize: "0.9rem",
-      color: "#e6edf3",
+      fontSize: "13px",
+      color: "#8b949e",
+      lineHeight: "1.4",
     },
     checklistItemStatus: {
-      fontSize: "0.9rem",
-      fontWeight: "bold",
+      fontSize: "12px",
+      fontWeight: "600",
     },
     statusCompleted: {
-      color: "#238636", // Green for success
+      color: "#238636",
     },
     statusIncomplete: {
-      color: "#dc4c3e", // Todoist red for error/incomplete
+      color: "#da3633",
     },
     errorText: {
-      color: "#dc4c3e",
+      color: "#da3633",
       textAlign: "center",
-      marginTop: "20px",
-      fontSize: "1.1rem",
+      marginTop: "32px",
+      fontSize: "14px",
     },
     loadingText: {
-      color: "#58a6ff",
+      color: "#1f6feb",
       textAlign: "center",
-      marginTop: "20px",
-      fontSize: "1.1rem",
+      marginTop: "32px",
+      fontSize: "14px",
     },
   };
 
   const handleClear = () => {
-    setRequirements("");
-    setCode("");
-    setAnalysisResult(null);
-    setError(null);
+    dispatch(clearAll());
   };
 
   const handleSubmit = async () => {
-    setLoading(true);
-    setError(null);
-    setAnalysisResult(null); // Clear previous results
+    dispatch(setLoading(true));
+    dispatch(setError(null));
+    dispatch(setAnalysisResult(null));
 
     try {
       const token = localStorage.getItem("access_token");
@@ -148,10 +178,10 @@ function CodeChecker() {
         throw new Error("Authentication token missing. Please log in.");
       }
 
-      // Check for empty inputs before sending to backend
       if (!requirements.trim()) {
         throw new Error("Exam questions (requirements) cannot be empty.");
       }
+
       if (!code.trim()) {
         throw new Error("Code snippet cannot be empty.");
       }
@@ -167,12 +197,11 @@ function CodeChecker() {
         }
       );
 
-      setAnalysisResult(response.data.simplifiedChecklist); // Store the AI's checklist and summary
-
+      dispatch(setAnalysisResult(response.data.simplifiedChecklist));
       Swal.fire({
         icon: "success",
         title: "Success",
-      }); // Show a success message to the user
+      });
     } catch (err) {
       console.error("Error submitting code for analysis:", err);
       let errorMessage = "Failed to analyze code. Please try again.";
@@ -181,144 +210,449 @@ function CodeChecker() {
       } else if (err.message) {
         errorMessage = err.message;
       }
-      setError(errorMessage);
+      dispatch(setError(errorMessage));
 
-      // Handle 401 specifically to redirect to login
       if (err.response && err.response.status === 401) {
         localStorage.removeItem("access_token");
         window.location.href = "/login";
       }
     } finally {
-      setLoading(false);
+      dispatch(setLoading(false));
     }
   };
 
   return (
-    <div className="container-fluid" style={styles.container}>
-      <h1 className="my-4" style={styles.header}>
-        Code Checker & Task Generator
-      </h1>
-      <div className="row justify-content-center">
-        <div className="col-12 col-lg-10">
-          <div className="mb-4">
-            <label
-              htmlFor="requirements-textarea"
-              className="form-label"
-              style={{ color: styles.container.color }}
-            >
-              Exam Questions (Requirements):
-            </label>
-            <textarea
-              id="requirements-textarea"
-              className="form-control"
-              value={requirements}
-              onChange={(e) => setRequirements(e.target.value)}
-              placeholder="Paste your exam requirements here..."
-              rows="10"
-              style={styles.textarea}
-            ></textarea>
-          </div>
-          <div className="mb-4">
-            <label
-              htmlFor="code-textarea"
-              className="form-label"
-              style={{ color: styles.container.color }}
-            >
-              Your Code:
-            </label>
-            <textarea
-              id="code-textarea"
-              className="form-control"
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
-              placeholder="Paste your code snippet here..."
-              rows="15"
-              style={styles.textarea}
-            ></textarea>
-          </div>
-          <div className="d-flex justify-content-end gap-3 mb-4">
-            <button
-              className="btn"
-              style={styles.buttonClear}
-              onMouseEnter={(e) =>
-                (e.target.style.backgroundColor =
-                  styles.buttonHoverClear.backgroundColor)
-              }
-              onMouseLeave={(e) =>
-                (e.target.style.backgroundColor =
-                  styles.buttonClear.backgroundColor)
-              }
-              onClick={handleClear}
-              disabled={loading}
-            >
-              Clear
-            </button>
-            <button
-              className="btn"
-              style={styles.buttonPrimary}
-              onMouseEnter={(e) =>
-                (e.target.style.backgroundColor =
-                  styles.buttonHoverPrimary.backgroundColor)
-              }
-              onMouseLeave={(e) =>
-                (e.target.style.backgroundColor =
-                  styles.buttonPrimary.backgroundColor)
-              }
-              onClick={handleSubmit}
-              disabled={loading}
-            >
-              {loading ? "Analyzing..." : "Analyze & Generate Tasks"}
-            </button>
-          </div>
+    <>
+      <link
+        href="https://fonts.googleapis.com/css2?family=Cabin:wght@600;700&display=swap"
+        rel="stylesheet"
+      />
+      <link
+        href="https://fonts.googleapis.com/css2?family=Ubuntu+Mono:wght@400;700&display=swap"
+        rel="stylesheet"
+      />
+      <link
+        href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css"
+        rel="stylesheet"
+      />
 
-          {/* Display Loading, Error, or Analysis Results */}
-          {loading && (
-            <p className="lead" style={styles.loadingText}>
-              Analyzing code, generating checklist, and creating Todoist
-              tasks...
+      <div className="container-fluid" style={styles.container}>
+        {/* Header Section */}
+        <div className="d-flex align-items-center justify-content-between mb-4">
+          <div>
+            <h1 style={styles.header}>
+              <i
+                className="bi bi-code-slash me-3"
+                style={{ color: "#1f6feb" }}
+              ></i>
+              Code Checker & Task Generator
+            </h1>
+            <p style={{ color: "#8b949e", fontSize: "14px", margin: 0 }}>
+              Analyze your code against requirements and generate actionable
+              tasks
             </p>
-          )}
-
-          {error && (
-            <p className="lead" style={styles.errorText}>
-              Error: {error}
-            </p>
-          )}
-
-          {analysisResult && (
-            <div style={styles.resultCard}>
-              <h2 style={styles.resultHeader}>Analysis Results & Checklist</h2>
-              <p style={styles.summaryText}>
-                <strong>Summary:</strong> {analysisResult.summary}
-              </p>
-              <h3 style={styles.checklistTitle}>Detailed Checklist:</h3>
-              <ul className="list-unstyled">
-                {analysisResult.checklist.map((item, index) => (
-                  <li key={index} style={styles.checklistItem}>
-                    <span style={styles.checklistItemDescription}>
-                      {item.itemDescription}
-                    </span>
-                    <span
-                      style={{
-                        ...styles.checklistItemStatus,
-                        ...(item.isCompleted
-                          ? styles.statusCompleted
-                          : styles.statusIncomplete),
-                      }}
-                    >
-                      Status: {item.isCompleted ? "Completed" : "Incomplete"}
-                    </span>
-                    <span style={styles.checklistItemDetails}>
-                      Details: {item.details}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
+          </div>
         </div>
+
+        {/* Side by Side Input Cards */}
+        <div className="row">
+          {/* Code Input - Left Side */}
+          <div className="col-12 col-lg-6 mb-4">
+            <div
+              className="card border-0 h-100"
+              style={{
+                backgroundColor: "#161b22",
+                border: "1px solid #30363d",
+                borderRadius: "12px",
+              }}
+            >
+              <div
+                className="card-header border-0 d-flex align-items-center gap-2"
+                style={{
+                  backgroundColor: "#0F0F12",
+                  borderRadius: "12px 12px 0 0",
+                  padding: "16px 20px",
+                  borderBottom: "1px solid #21262d",
+                }}
+              >
+                <div
+                  className="p-2 rounded-2"
+                  style={{
+                    backgroundColor: "#238636",
+                    color: "#fff",
+                  }}
+                >
+                  <i className="bi bi-braces" style={{ fontSize: "16px" }}></i>
+                </div>
+                <div>
+                  <h6
+                    className="mb-0"
+                    style={{
+                      color: "#f0f6fc",
+                      fontSize: "14px",
+                      fontWeight: "600",
+                      fontFamily: "Cabin, sans-serif",
+                    }}
+                  >
+                    Your Code
+                  </h6>
+                  <small style={{ color: "#8b949e", fontSize: "12px" }}>
+                    Paste your code snippet here for analysis
+                  </small>
+                </div>
+              </div>
+              <div
+                className="card-body position-relative"
+                style={{ padding: "0" }}
+              >
+                {/* Code Preview with Syntax Highlighting */}
+                <Editor
+                  value={code}
+                  onValueChange={(value) => dispatch(setCode(value))}
+                  highlight={(code) =>
+                    Prism.highlight(
+                      code,
+                      Prism.languages.javascript,
+                      "javascript"
+                    )
+                  }
+                  padding={16}
+                  textareaId="code-textarea"
+                  className="prism-editor__textarea"
+                  style={{
+                    minHeight: "400px",
+                    backgroundColor: "#0d1117",
+                    color: "#e6edf3",
+                    fontFamily: "'Ubuntu Mono', 'Courier New', monospace",
+                    fontSize: "14px",
+                    lineHeight: "1.6",
+                    border: "1px solid #30363d",
+                    borderRadius: "12px",
+                    tabSize: 2,
+                    whiteSpace: "pre-wrap",
+                    wordWrap: "break-word",
+                    resize: "vertical",
+                    overflow: "auto",
+                    outline: "none",
+                    width: "100%",
+                    wordBreak: "break-word",
+                    overflowWrap: "break-word",
+                    caretColor: "#e6edf3",
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Requirements Input - Right Side */}
+          <div className="col-12 col-lg-6 mb-4">
+            <div
+              className="card border-0 h-100"
+              style={{
+                backgroundColor: "#161b22",
+                border: "1px solid #30363d",
+                borderRadius: "12px",
+              }}
+            >
+              <div
+                className="card-header border-0 d-flex align-items-center gap-2"
+                style={{
+                  backgroundColor: "#0F0F12",
+                  borderRadius: "12px 12px 0 0",
+                  padding: "16px 20px",
+                  borderBottom: "1px solid #21262d",
+                }}
+              >
+                <div
+                  className="p-2 rounded-2"
+                  style={{
+                    backgroundColor: "#1f6feb",
+                    color: "#fff",
+                  }}
+                >
+                  <i
+                    className="bi bi-file-text"
+                    style={{ fontSize: "16px" }}
+                  ></i>
+                </div>
+                <div>
+                  <h6
+                    className="mb-0"
+                    style={{
+                      color: "#f0f6fc",
+                      fontSize: "14px",
+                      fontWeight: "600",
+                      fontFamily: "Cabin, sans-serif",
+                    }}
+                  >
+                    Exam Questions (Requirements)
+                  </h6>
+                  <small style={{ color: "#8b949e", fontSize: "12px" }}>
+                    Paste your exam requirements here
+                  </small>
+                </div>
+              </div>
+              <div className="card-body" style={{ padding: "0" }}>
+                <textarea
+                  id="requirements-textarea"
+                  className="form-control border-0"
+                  value={requirements}
+                  onChange={(e) => dispatch(setRequirements(e.target.value))}
+                  placeholder="Paste your exam requirements here..."
+                  rows="20"
+                  style={styles.textarea}
+                ></textarea>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="d-flex justify-content-end gap-3 mb-4">
+          <button
+            className="btn d-flex align-items-center gap-2"
+            style={styles.buttonClear}
+            onMouseEnter={(e) =>
+              (e.target.style.backgroundColor =
+                styles.buttonHoverClear.backgroundColor)
+            }
+            onMouseLeave={(e) =>
+              (e.target.style.backgroundColor =
+                styles.buttonClear.backgroundColor)
+            }
+            onClick={handleClear}
+            disabled={loading}
+          >
+            <i className="bi bi-arrow-clockwise"></i>
+            Clear
+          </button>
+          <button
+            className="btn d-flex align-items-center gap-2"
+            style={styles.buttonPrimary}
+            onMouseEnter={(e) =>
+              (e.target.style.backgroundColor =
+                styles.buttonHoverPrimary.backgroundColor)
+            }
+            onMouseLeave={(e) =>
+              (e.target.style.backgroundColor =
+                styles.buttonPrimary.backgroundColor)
+            }
+            onClick={handleSubmit}
+            disabled={loading}
+          >
+            {loading ? (
+              <>
+                <div
+                  className="spinner-border spinner-border-sm"
+                  role="status"
+                  style={{ width: "16px", height: "16px" }}
+                >
+                  <span className="visually-hidden">Loading...</span>
+                </div>
+                Analyzing...
+              </>
+            ) : (
+              <>
+                <i className="bi bi-play-circle"></i>
+                Analyze & Generate Tasks
+              </>
+            )}
+          </button>
+        </div>
+
+        {/* Loading State */}
+        {loading && (
+          <div
+            className="card border-0 text-center py-4"
+            style={{
+              backgroundColor: "#161b22",
+              border: "1px solid #30363d",
+              borderRadius: "12px",
+            }}
+          >
+            <div className="card-body">
+              <div
+                className="spinner-border mb-3"
+                style={{ color: "#1f6feb" }}
+                role="status"
+              >
+                <span className="visually-hidden">Loading...</span>
+              </div>
+              <p className="lead" style={styles.loadingText}>
+                Analyzing code, generating checklist, and creating Todoist
+                tasks...
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Error State */}
+        {error && (
+          <div
+            className="card border-0 text-center py-4"
+            style={{
+              backgroundColor: "#161b22",
+              border: "1px solid #da3633",
+              borderRadius: "12px",
+            }}
+          >
+            <div className="card-body">
+              <i
+                className="bi bi-exclamation-triangle mb-3"
+                style={{ fontSize: "48px", color: "#da3633" }}
+              ></i>
+              <p className="lead" style={styles.errorText}>
+                Error: {error}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Analysis Results */}
+        {analysisResult && (
+          <div style={styles.resultCard}>
+            <div className="d-flex align-items-center gap-2 mb-3">
+              <div
+                className="p-2 rounded-2"
+                style={{
+                  backgroundColor: "#238636",
+                  color: "#fff",
+                }}
+              >
+                <i
+                  className="bi bi-check-circle"
+                  style={{ fontSize: "20px" }}
+                ></i>
+              </div>
+              <h2 style={styles.resultHeader}>Analysis Results & Checklist</h2>
+            </div>
+
+            {/* Summary Section */}
+            <div
+              className="p-3 rounded-3 mb-4"
+              style={{
+                backgroundColor: "#0d1117",
+                border: "1px solid #21262d",
+              }}
+            >
+              <div className="d-flex align-items-center gap-2 mb-2">
+                <i
+                  className="bi bi-info-circle"
+                  style={{ color: "#1f6feb", fontSize: "16px" }}
+                ></i>
+                <strong style={{ color: "#f0f6fc", fontSize: "14px" }}>
+                  Summary
+                </strong>
+              </div>
+              <p style={styles.summaryText}>{analysisResult.summary}</p>
+            </div>
+
+            {/* Checklist Section */}
+            <div className="d-flex align-items-center gap-2 mb-3">
+              <i
+                className="bi bi-list-check"
+                style={{ color: "#1f6feb", fontSize: "16px" }}
+              ></i>
+              <h3 style={styles.checklistTitle}>Detailed Checklist</h3>
+            </div>
+
+            <div className="row">
+              {analysisResult.checklist.map((item, index) => (
+                <div key={index} className="col-12 col-md-6 col-xl-4 mb-3">
+                  <div style={styles.checklistItem}>
+                    <div className="d-flex align-items-start justify-content-between mb-2">
+                      <span style={styles.checklistItemDescription}>
+                        {item.itemDescription}
+                      </span>
+                      <span
+                        className="badge rounded-pill px-2 py-1"
+                        style={{
+                          backgroundColor: item.isCompleted
+                            ? "#238636"
+                            : "#da3633",
+                          color: "#fff",
+                          fontSize: "10px",
+                        }}
+                      >
+                        <i
+                          className={`bi ${
+                            item.isCompleted ? "bi-check-circle" : "bi-x-circle"
+                          } me-1`}
+                          style={{ fontSize: "10px" }}
+                        ></i>
+                        {item.isCompleted ? "Completed" : "Incomplete"}
+                      </span>
+                    </div>
+                    <span style={styles.checklistItemDetails}>
+                      <strong>Details:</strong> {item.details}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Statistics */}
+            <div
+              className="mt-4 pt-3"
+              style={{ borderTop: "1px solid #21262d" }}
+            >
+              <div className="row text-center">
+                <div className="col-4">
+                  <div style={{ color: "#8b949e", fontSize: "12px" }}>
+                    Total Items
+                  </div>
+                  <div
+                    style={{
+                      color: "#f0f6fc",
+                      fontSize: "18px",
+                      fontWeight: "600",
+                    }}
+                  >
+                    {analysisResult.checklist.length}
+                  </div>
+                </div>
+                <div className="col-4">
+                  <div style={{ color: "#8b949e", fontSize: "12px" }}>
+                    Completed
+                  </div>
+                  <div
+                    style={{
+                      color: "#238636",
+                      fontSize: "18px",
+                      fontWeight: "600",
+                    }}
+                  >
+                    {
+                      analysisResult.checklist.filter(
+                        (item) => item.isCompleted
+                      ).length
+                    }
+                  </div>
+                </div>
+                <div className="col-4">
+                  <div style={{ color: "#8b949e", fontSize: "12px" }}>
+                    Remaining
+                  </div>
+                  <div
+                    style={{
+                      color: "#da3633",
+                      fontSize: "18px",
+                      fontWeight: "600",
+                    }}
+                  >
+                    {
+                      analysisResult.checklist.filter(
+                        (item) => !item.isCompleted
+                      ).length
+                    }
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
-    </div>
+    </>
   );
 }
 
