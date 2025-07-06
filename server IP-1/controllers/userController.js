@@ -29,7 +29,7 @@ class UserController {
       }
 
       const token = signToken({ id: user.id, email: user.email });
-      res.status(200).json({ token, userId: user.id });
+      res.status(200).json({ token, userId: user.id, username: user.name });
     } catch (error) {
       console.log(error);
       next(error);
